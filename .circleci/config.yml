@@ -52,3 +52,8 @@ jobs:
 
       #- store_artifacts:
       #    path: ~/repo/build/dependency-analyze
+
+      - run: |
+          if [ "${CIRCLE_BRANCH}" == "master" ]; then
+            gradle publish -Pversion=$CIRCLE_BUILD_NUM
+          fi

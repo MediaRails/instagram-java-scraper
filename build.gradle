@@ -1,5 +1,5 @@
-group 'me.postaddict.instagramscraper'
-version '0.0.1'
+group 'com.mediarails'
+version "0.1.${version}"
 
 apply plugin: 'java'
 
@@ -14,4 +14,29 @@ dependencies {
     compile 'com.squareup.okhttp3:okhttp:3.2.0'
     compile 'com.squareup.okhttp3:logging-interceptor:3.2.0'
     compile 'com.google.code.gson:gson:2.7'
+}
+
+task sourceJar(type: Jar) {
+    from sourceSets.main.allJava
+}
+
+apply plugin: 'maven-publish'
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            artifact sourceJar {
+                classifier "sources"
+            }
+        }
+    }
+    repositories {
+        maven {
+            url "s3://mediarails-build/maven"
+            authentication {
+                awsIm(AwsImAuthentication)
+            }
+        }
+    }
 }
