@@ -5,6 +5,7 @@ import me.postaddict.instagram.scraper.cookie.DefaultCookieJar;
 import me.postaddict.instagram.scraper.domain.Account;
 import me.postaddict.instagram.scraper.domain.Comment;
 import me.postaddict.instagram.scraper.domain.Media;
+import me.postaddict.instagram.scraper.domain.Tag;
 import me.postaddict.instagram.scraper.interceptor.ErrorInterceptor;
 import me.postaddict.instagram.scraper.interceptor.UserAgentInterceptor;
 import me.postaddict.instagram.scraper.interceptor.UserAgents;
@@ -16,9 +17,7 @@ import org.junit.Test;
 
 import java.util.List;
 
-import static me.postaddict.instagram.scraper.ContentCheck.checkAccount;
-import static me.postaddict.instagram.scraper.ContentCheck.checkComment;
-import static me.postaddict.instagram.scraper.ContentCheck.checkMedia;
+import static me.postaddict.instagram.scraper.ContentCheck.*;
 import static org.junit.Assert.*;
 
 @Ignore
@@ -41,11 +40,27 @@ public class AnonymousInstaTest {
     }
 
     @Test
+    public void testGetAccountById() throws Exception {
+        Account account = client.getAccountById(3);
+        assertEquals("kevin", account.username);
+        assertTrue(checkAccount(account));
+        System.out.println(account);
+    }
+
+    @Test
     public void testGetAccountByUsername() throws Exception {
         Account account = client.getAccountByUsername("kevin");
         assertEquals("kevin", account.username);
         assertTrue(checkAccount(account));
         System.out.println(account);
+    }
+
+    @Test
+    public void testGetTagByName() throws Exception {
+        Tag tag = client.getTagByName("corgi");
+        assertEquals("corgi", tag.name);
+        assertTrue(checkTag(tag));
+        System.out.println(tag);
     }
 
     @Test
@@ -76,10 +91,16 @@ public class AnonymousInstaTest {
 
     @Test
     public void testGetLocationMediasById() throws Exception {
-        List<Media> list = client.getLocationMediasById("17326249", 13);
+        String locationId = "17326249";
+        List<Media> list = client.getLocationMediasById(locationId, 13);
         assertEquals(13, list.size());
         for (Media media : list) {
             assertTrue(checkMedia(media));
+            assertNotNull(media.location);
+            assertEquals(locationId, Long.toString(media.location.id));
+            assertNotNull(media.location.name);
+            assertNotNull(media.location.lat);
+            assertNotNull(media.location.lng);
         }
         System.out.println(list);
     }
@@ -130,7 +151,7 @@ public class AnonymousInstaTest {
 
     @Test
     public void testPreviewComments() throws Exception {
-        Media media = client.getMedias("kevin", 1).get(0);
+        Media media = client.getMediaByCode("Ba63OW3hAKq");
         if (media.commentsCount > 0){
             assertTrue(media.previewCommentsList.size() > 0);
             for (Comment comment : media.previewCommentsList) {

@@ -1,9 +1,7 @@
 package me.postaddict.instagram.scraper;
 
 import com.google.gson.Gson;
-import me.postaddict.instagram.scraper.domain.Account;
-import me.postaddict.instagram.scraper.domain.Comment;
-import me.postaddict.instagram.scraper.domain.Media;
+import me.postaddict.instagram.scraper.domain.*;
 import me.postaddict.instagram.scraper.exception.InstagramAuthException;
 import okhttp3.*;
 
@@ -15,8 +13,8 @@ import java.util.Map;
 
 public class Instagram implements AuthenticatedInsta {
 
-    private OkHttpClient httpClient;
-    private Gson gson;
+    public OkHttpClient httpClient;
+    public Gson gson;
 
     public Instagram(OkHttpClient httpClient) {
         this.httpClient = httpClient;
@@ -71,22 +69,18 @@ public class Instagram implements AuthenticatedInsta {
     }
 
     public Account getAccountById(long id) throws IOException {
-        RequestBody formBody = new FormBody.Builder()
-                .add("q", Endpoint.getAccountJsonInfoLinkByAccountId(id))
-                .build();
-
         Request request = new Request.Builder()
-                .url(Endpoint.INSTAGRAM_QUERY_URL)
+                .url(Endpoint.getAccountJsonInfoLinkByAccountId(id))
                 .header("Referer", Endpoint.BASE_URL + "/")
-                .post(formBody)
                 .build();
-
         Response response = this.httpClient.newCall(withCsrfToken(request)).execute();
         String jsonString = response.body().string();
         response.body().close();
 
         Map userJson = gson.fromJson(jsonString, Map.class);
-        return Account.fromAccountPage(userJson);
+        String shortCode = (String) ((Map) ((Map) ((List) ((Map) ((Map) ((Map) userJson.get("data")).get("user")).get("edge_owner_to_timeline_media")).get("edges")).get(0)).get("node")).get("shortcode");
+        Media m = getMediaByCode(shortCode);
+        return m.owner;
     }
 
     public Account getAccountByUsername(String username) throws IOException {
@@ -117,8 +111,9 @@ public class Instagram implements AuthenticatedInsta {
             String jsonString = response.body().string();
             response.body().close();
 
-            Map mediasMap = gson.fromJson(jsonString, Map.class);
-            List items = (List) mediasMap.get("items");
+            Map map = gson.fromJson(jsonString, Map.class);
+            Map userMap = (Map) map.get("user");
+            List items = (List) (((Map) userMap.get("media")).get("nodes"));
 
             for (Object item : items) {
                 if (index == count) {
@@ -127,10 +122,11 @@ public class Instagram implements AuthenticatedInsta {
                 index++;
                 Map mediaMap = (Map) item;
                 Media media = Media.fromApi(mediaMap);
+                media.owner = Account.fromAccountPage(userMap);
                 medias.add(media);
                 maxId = media.id;
             }
-            isMoreAvailable = (Boolean) mediasMap.get("more_available");
+            isMoreAvailable = (Boolean) ((Map) (((Map) userMap.get("media")).get("page_info"))).get("has_next_page");
         }
         return medias;
     }
@@ -150,6 +146,20 @@ public class Instagram implements AuthenticatedInsta {
 
     public Media getMediaByCode(String code) throws IOException {
         return getMediaByUrl(Endpoint.getMediaPageLinkByCode(code));
+    }
+
+    public Tag getTagByName(String tagName) throws IOException {
+        Request request = new Request.Builder()
+                .url(Endpoint.getTagJsonByTagName(tagName))
+                .build();
+
+        Response response = this.httpClient.newCall(request).execute();
+        String jsonString = response.body().string();
+        response.body().close();
+
+        Map tagJson = gson.fromJson(jsonString, Map.class);
+        return Tag.fromSearchPage((Map) tagJson.get("tag"));
+
     }
 
     public List<Media> getLocationMediasById(String locationId, int count) throws IOException {
@@ -177,6 +187,7 @@ public class Instagram implements AuthenticatedInsta {
                 index++;
                 Map mediaMap = (Map) node;
                 Media media = Media.fromTagPage(mediaMap);
+                media.location = Location.fromLocationMedias((Map)locationMap.get("location"));
                 medias.add(media);
             }
             hasNext = (Boolean) ((Map) ((Map) ((Map) locationMap.get("location")).get("media")).get("page_info")).get("has_next_page");
@@ -248,13 +259,9 @@ public class Instagram implements AuthenticatedInsta {
         boolean hasNext = true;
 
         while (index < count && hasNext) {
-            RequestBody formBody = new FormBody.Builder()
-                    .add("q", Endpoint.getCommentsBeforeCommentIdByCode(code, 20, commentId))
-                    .build();
             Request request = new Request.Builder()
-                    .url(Endpoint.INSTAGRAM_QUERY_URL)
+                    .url(Endpoint.getCommentsBeforeCommentIdByCode(code, 20, commentId))
                     .header("Referer", Endpoint.BASE_URL + "/")
-                    .post(formBody)
                     .build();
 
             Response response = this.httpClient.newCall(withCsrfToken(request)).execute();
@@ -262,7 +269,7 @@ public class Instagram implements AuthenticatedInsta {
             response.body().close();
 
             Map commentsMap = gson.fromJson(jsonString, Map.class);
-            List nodes = (List) ((Map) commentsMap.get("comments")).get("nodes");
+            List nodes = (List) ((Map) ((Map) ((Map) commentsMap.get("data")).get("shortcode_media")).get("edge_media_to_comment")).get("edges");
             for (Object node : nodes) {
                 if (index == count) {
                     return comments;
@@ -272,13 +279,13 @@ public class Instagram implements AuthenticatedInsta {
                 Comment comment = Comment.fromApi(commentMap);
                 comments.add(comment);
             }
-            hasNext = (Boolean) ((Map) ((Map) commentsMap.get("comments")).get("page_info")).get("has_previous_page");
-            commentId = (String) ((Map) ((Map) commentsMap.get("comments")).get("page_info")).get("start_cursor");
+            hasNext = (Boolean) ((Map) (((Map) ((Map) ((Map) commentsMap.get("data")).get("shortcode_media")).get("edge_media_to_comment"))).get("page_info")).get("has_next_page");
+            commentId = (String) ((Map) (((Map) ((Map) ((Map) commentsMap.get("data")).get("shortcode_media")).get("edge_media_to_comment"))).get("page_info")).get("end_cursor");
         }
         return comments;
     }
 
-  public void likeMediaByCode(String code) throws IOException {
+    public void likeMediaByCode(String code) throws IOException {
         String url = Endpoint.getMediaLikeLink(Media.getIdFromCode(code));
         Request request = new Request.Builder()
                 .url(url)
@@ -290,8 +297,120 @@ public class Instagram implements AuthenticatedInsta {
         response.body().close();
     }
 
+    public List<Account> getFollows(long userId, int count) throws IOException {
+        boolean hasNext = true;
+        List<Account> follows = new ArrayList<Account>();
+        String followsLink = Endpoint.getFollowsLinkVariables(userId, 200, "");
+        while (follows.size() < count && hasNext) {
+            Request request = new Request.Builder()
+                    .url(followsLink)
+                    .header("Referer", Endpoint.BASE_URL + "/")
+                    .build();
+
+            Response response = this.httpClient.newCall(withCsrfToken(request)).execute();
+            String jsonString = response.body().string();
+            response.body().close();
+
+            Map commentsMap = gson.fromJson(jsonString, Map.class);
+            Map edgeFollow = (Map) ((Map) ((Map) commentsMap.get("data")).get("user")).get("edge_follow");
+            List edges = (List) edgeFollow.get("edges");
+            for (Object edgeObj : edges) {
+                Account account = account((Map) edgeObj);
+                follows.add(account);
+                if (count == follows.size()) {
+                    return follows;
+                }
+            }
+            boolean hasNexPage = (Boolean) ((Map) edgeFollow.get("page_info")).get("has_next_page");
+            if (hasNexPage) {
+                followsLink = Endpoint.getFollowsLinkVariables(userId, 200, (String) ((Map) edgeFollow.get("page_info")).get("end_cursor"));
+                hasNext = true;
+            } else {
+                hasNext = false;
+            }
+        }
+        return follows;
+    }
+
+    private Account account(Map edgeObj) {
+        Account account = new Account();
+        Map edgeNode = (Map) edgeObj.get("node");
+        account.id = Long.valueOf((String) edgeNode.get("id"));
+        account.username = (String) edgeNode.get("username");
+        account.profilePicUrl = (String) edgeNode.get("profile_pic_url");
+        account.isVerified = (Boolean) edgeNode.get("is_verified");
+        account.fullName = (String) edgeNode.get("full_name");
+        return account;
+    }
+
+    public List<Account> getFollowers(long userId, int count) throws IOException {
+        boolean hasNext = true;
+        List<Account> followers = new ArrayList<Account>();
+        String followsLink = Endpoint.getFollowersLinkVariables(userId, 200, "");
+        while (followers.size() < count && hasNext) {
+            Request request = new Request.Builder()
+                    .url(followsLink)
+                    .header("Referer", Endpoint.BASE_URL + "/")
+                    .build();
+
+            Response response = this.httpClient.newCall(withCsrfToken(request)).execute();
+            String jsonString = response.body().string();
+            response.body().close();
+
+            Map commentsMap = gson.fromJson(jsonString, Map.class);
+            Map edgeFollow = (Map) ((Map) ((Map) commentsMap.get("data")).get("user")).get("edge_followed_by");
+            List edges = (List) edgeFollow.get("edges");
+            for (Object edgeObj : edges) {
+                Account account = account((Map) edgeObj);
+                followers.add(account);
+                if (count == followers.size()) {
+                    return followers;
+                }
+            }
+            boolean hasNexPage = (Boolean) ((Map) edgeFollow.get("page_info")).get("has_next_page");
+            if (hasNexPage) {
+                followsLink = Endpoint.getFollowersLinkVariables(userId, 200, (String) ((Map) edgeFollow.get("page_info")).get("end_cursor"));
+                hasNext = true;
+            } else {
+                hasNext = false;
+            }
+        }
+        return followers;
+    }
+
     public void unlikeMediaByCode(String code) throws IOException {
         String url = Endpoint.getMediaUnlikeLink(Media.getIdFromCode(code));
+        Request request = new Request.Builder()
+                .url(url)
+                .header("Referer", Endpoint.getMediaPageLinkByCode(code) + "/")
+                .post(new FormBody.Builder().build())
+                .build();
+
+        Response response = this.httpClient.newCall(withCsrfToken(request)).execute();
+        response.body().close();
+    }
+
+    public Comment addMediaComment(String code, String commentText) throws IOException {
+        String url = Endpoint.addMediaCommentLink(Media.getIdFromCode(code));
+        FormBody formBody = new FormBody.Builder()
+                .add("comment_text", commentText)
+                .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .header("Referer", Endpoint.getMediaPageLinkByCode(code) + "/")
+                .post(formBody)
+                .build();
+
+        Response response = this.httpClient.newCall(withCsrfToken(request)).execute();
+        String jsonString = response.body().string();
+        response.body().close();
+
+        Map commentMap = gson.fromJson(jsonString, Map.class);
+        return Comment.fromApi(commentMap);
+    }
+
+    public void deleteMediaComment(String code, String commentId) throws IOException {
+        String url = Endpoint.deleteMediaCommentLink(Media.getIdFromCode(code), commentId);
         Request request = new Request.Builder()
                 .url(url)
                 .header("Referer", Endpoint.getMediaPageLinkByCode(code) + "/")
