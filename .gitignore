@@ -25,3 +25,7 @@ src/main/java/.DS_Store
 *.iws
 
 **/credentials.properties
+out
+.classpath
+.project
+.settings/
