@@ -1,6 +1,5 @@
 Instagram Java scraper
 ======================
-
 Instagram Java Scraper. Get account information, photos and videos without any authorization.
 
  
@@ -50,9 +49,15 @@ MediaUtil.getIdFromCode('BGiDkHAgBF_');
 // Output: 1270593720437182847
 ```
 
+### If you use this library in your project and want to help us ###
+
+* Mark project repository by star on github 
+* Make pull request with bug fix
+* Follow project contributors
+
 ### How to use release version of Instagram Java scraper ###
 
-Released as [com.github.igor-suhorukov:instagramscraper:2.0](http://repo1.maven.org/maven2/com/github/igor-suhorukov/instagramscraper/2.0/) into [maven central](https://mvnrepository.com/artifact/com.github.igor-suhorukov/instagramscraper/2.0) 
+Released as [com.github.igor-suhorukov:instagramscraper:2.2](http://repo1.maven.org/maven2/com/github/igor-suhorukov/instagramscraper/2.2/) into [maven central](https://mvnrepository.com/artifact/com.github.igor-suhorukov/instagramscraper/2.2)
 
 ### How to use development version of Instagram Java scraper ###
 
