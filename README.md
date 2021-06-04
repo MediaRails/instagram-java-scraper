@@ -1,5 +1,10 @@
 Instagram Java scraper
 ======================
+
+Obsolete.  This fork of the instagram-java-scraper project contains Mediarails fixes on top of the original.
+
+---
+
 Instagram Java Scraper. Get account information, photos and videos without any authorization.
 
  
